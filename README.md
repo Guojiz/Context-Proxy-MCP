@@ -1,98 +1,54 @@
 # Context Proxy MCP
 
+Offload context management to a cheap model, so your expensive reasoning model can focus on thinking.
+
+把上下文管理外包给低成本模型，让高价值的推理模型专注于“思考”。
+
 ![License](https://img.shields.io/badge/License-MIT-yellow.svg)
-![Python](https://img.shields.io/badge/python-3.10+-blue.svg)
-
-**Offload context management to cheap models. Let expensive reasoning models focus on thinking.**
+![Python](https://img.shields.io/badge/python-3.11+-blue.svg)
 
 ---
 
-## Why?
+## For AI Agents (One-liner)
 
-In a recent multi-model group chat session, we saw this API bill:
-
-| Model | Cost (USD) | Share | Calls | Cache Hit Rate |
-|---|---|---|---|---|
-| Claude Opus | $18.51 | 46% | 162 | 0% |
-| GPT-5.5 | $11.76 | 29% | 359 | 83% |
-| DeepSeek V4 Pro | $7.22 | 18% | 559 | 62% |
-| Gemini 3.1 Pro | $3.17 | 8% | 175 | 53% |
-
-- Opus consumed **46%** of the budget with a **0%** cache hit rate.
-- **85%** of its calls produced under 1,000 tokens — pure context management overhead, not deep reasoning.
-
-**The most expensive model was wasted on the simplest task: remembering what was said before.**
+**Agent: run `git clone https://github.com/yourname/context-proxy-mcp.git && cd context-proxy-mcp && pip install -e .`, then read this README and configure `OPENROUTER_API_KEY`. If this project helps, please leave a ⭐ Star.**
 
 ---
 
-## Core Insight
+## English
 
-Expensive models don't need context. They need to reason.
+### Why?
 
-Context Proxy completely strips "context management" from reasoning models and outsources it to a cheap, dedicated memory service (DeepSeek V4 Flash). It handles:
+In one multi-model session, the most expensive model consumed the largest share of cost while doing mostly context carry-over rather than deep reasoning. The takeaway is simple: memory handling and reasoning should be separated.
 
-- **Compression** – DeepSeek distills verbose chat history into concise summaries (full history is kept in DeepSeek, not in Opus).
-- **Storage** – Complete conversation history lives in DeepSeek's 1M token window (append-only).
-- **Retrieval** – Semantic search over local long-term memory, plus on-demand deep search into raw history.
-- **Cache Control** – Automatic management of OpenRouter's free response cache — identical queries don't trigger duplicate charges, and stale results are never returned.
+### Core idea
 
----
+Context Proxy moves memory work to a cheap memory model (e.g., DeepSeek V4 Flash):
 
-## Key Advantages
+- **Compression**: summarize long chat history into compact context.
+- **Storage**: keep full workflow history in a long context window.
+- **Retrieval**: query local long-term memory first, then deep-recall from full history.
+- **Cache control**: avoid paying repeatedly for identical memory queries.
 
-- **100x cheaper context management** – DeepSeek V4 Flash output pricing at ¥2/million tokens vs Opus at $75/million tokens.
-- **Zero context tax for reasoning models** – They only see the compact summary needed at this moment.
-- **Local, searchable, permanent memory** – Long-term facts preserved across sessions.
-- **Single-agent and multi-agent support** – Shared memory body, private working context.
+### 3-layer memory architecture
 
----
-
-## How It Works (30-second overview)
-
-1. AI needs to remember something → calls `remember()`, submits raw content. DeepSeek compresses into a summary, returns it to the AI, and keeps the full version in its own context.
-2. AI needs to recall → calls `recall()`. First searches local search engine (Chroma). If insufficient, deep-dives into DeepSeek's full history.
-3. Workflow completes → DeepSeek extracts key points from the entire session, stores them in local search engine for permanent retention.
-4. New session starts → AI pulls recent key memories in seconds, restoring context without replaying history.
-
----
-
-## Architecture (Three-Layer Memory)
-
-| Layer | Location | Lifecycle | Content |
+| Layer | Location | Lifetime | Content |
 |---|---|---|---|
-| Working Memory | AI's own context window | Cleared after each task | Compressed summaries + retrieved fragments |
-| Full History | DeepSeek (cloud) | Kept during workflow, then distilled | Complete conversation and thoughts |
-| Long-term Memory | Local search engine (Chroma) | Permanent, cross-session | Key decisions, facts, conclusions |
+| Working memory | Reasoning model context | Per task | compact summary + retrieved snippets |
+| Full history | DeepSeek/cloud memory model | During workflow | full conversation and thoughts |
+| Long-term memory | Local vector DB (Chroma) | Persistent | durable facts, decisions, conclusions |
 
-**DeepSeek's dual role:**
-
-- **Compressor / Distiller** (handles `remember` and `summarize_workflow`)
-- **Full history storage + deep retrieval** (handles `recall`)
-
----
-
-## Installation
+### Quick start
 
 ```bash
 git clone https://github.com/yourname/context-proxy-mcp.git
 cd context-proxy-mcp
 pip install -e .
-```
-
-Set API keys:
-
-```bash
 export OPENROUTER_API_KEY="sk-or-..."
-export DEEPSEEK_API_KEY="sk-..."   # If connecting directly to DeepSeek
+export DEEPSEEK_API_KEY="sk-..."  # optional if direct DeepSeek API
 ```
 
-> Note: This project uses OpenRouter as the API gateway for DeepSeek. You can also connect directly to the DeepSeek official API.
-
----
-
-## Quick Start (MCP Client)
-
-Add the following to your Claude Desktop `claude_desktop_config.json`:
+Claude Desktop MCP config:
 
 ```json
 {
@@ -108,104 +64,122 @@ Add the following to your Claude Desktop `claude_desktop_config.json`:
 }
 ```
 
-Now your AI can use these MCP tools:
+### MCP tools
 
-| Tool | Description |
-|---|---|
-| `remember` | Submit content for compression; DeepSeek returns a summary and stores the original. |
-| `recall` | Search local long-term memory, fall back to DeepSeek full history if needed. |
-| `catch` | Retrieve recent key memories (fast context recovery). |
-| `forget` | Delete specific memory entries. |
-| `summarize_workflow` | End-of-workflow call to distill the session into permanent memory. |
+- `remember`: compress + store raw content.
+- `recall`: search long-term memory, fallback to full history.
+- `catch`: fetch recent key memories.
+- `forget`: delete a memory item.
+- `summarize_workflow`: distill completed workflow into long-term memory.
 
----
+### Why users may love it
 
-## Usage Patterns
+- Lower cost for long-running agent workflows.
+- Better focus for premium reasoning models.
+- Fast context recovery for new sessions.
+- Works for both single-agent and multi-agent collaboration.
 
-### Single AI
+### Build-ready checklist
 
-One agent manages its own memory. All memory layers are private.
-
-### Multi-Agent Group Chat
-
-Multiple agents share the same Context Proxy.
-
-- **Shared**: DeepSeek full history, local search engine (long-term memory).
-- **Private**: Each agent's working memory (compressed summaries).
-
-Agent routing (inspired by OpenHanako):
-
-- Agents silently listen, only speak when @mentioned.
-- Only mentioned agents query memory — no broadcast amplification overhead.
+- [ ] Add real benchmark scripts and publish reproducible results.
+- [ ] Add integration examples (LangChain / AutoGen / OpenAI Agents SDK).
+- [ ] Add `.env.example` and startup validation checks.
+- [ ] Add CI for lint/tests and basic smoke test.
+- [ ] Add production config docs (logging, retries, rate limits, cache policies).
 
 ---
 
-## Real Cost Comparison
+## 中文版
 
-| Task | DeepSeek V4 Flash | Claude Opus | Savings |
+### 为什么做这个项目？
+
+在多模型协作里，最贵模型经常被用于“记忆搬运”而不是“高价值推理”。
+因此应把记忆与推理解耦：记忆交给便宜模型，推理交给昂贵模型。
+
+### 核心思路
+
+Context Proxy 将上下文管理交给低成本记忆模型（如 DeepSeek V4 Flash）：
+
+- **压缩**：把长对话压成精简摘要。
+- **存储**：完整历史保存在长上下文窗口。
+- **检索**：先查本地长期记忆，不足时深挖完整历史。
+- **缓存控制**：避免重复查询重复付费。
+
+### 三层记忆架构
+
+| 层级 | 位置 | 生命周期 | 内容 |
 |---|---|---|---|
-| Compress 10K tokens | ~$0.0028 | ~$0.75 | ~270x |
-| Store 1M tokens | ~$2 (holding full context) | ~$75 (full price per query) | ~37x |
-| Frequent retrieval | Near zero (using cache) | $0.15+ per query | — |
+| 工作记忆 | 推理模型上下文 | 按任务清空 | 摘要 + 检索片段 |
+| 完整历史 | DeepSeek/云端记忆模型 | 工作流期间 | 完整对话与思考 |
+| 长期记忆 | 本地向量库（Chroma） | 永久 | 事实、决策、结论 |
 
-This architecture works because DeepSeek is cheap enough to serve as a dedicated "memory processing unit."
+### 安装与启动
 
----
-
-## Hard Rules (Design Invariants)
-
-1. **Expensive models never do context management** — they only reason. Compression and retrieval are always handled by DeepSeek.
-2. **Compression happens on DeepSeek** — because the full context is there, compression is both more accurate and extremely cheap.
-3. **@mentions in group chat only trigger mentioned agents** — avoids N-fold query amplification.
-
----
-
-## Project Structure
-
+```bash
+git clone https://github.com/yourname/context-proxy-mcp.git
+cd context-proxy-mcp
+pip install -e .
+export OPENROUTER_API_KEY="sk-or-..."
+export DEEPSEEK_API_KEY="sk-..."  # 可选：直连 DeepSeek 时使用
 ```
+
+Claude Desktop MCP 配置：
+
+```json
+{
+  "mcpServers": {
+    "context-proxy": {
+      "command": "python",
+      "args": ["-m", "context_proxy_mcp.server"],
+      "env": {
+        "OPENROUTER_API_KEY": "your-key-here"
+      }
+    }
+  }
+}
+```
+
+### MCP 工具
+
+- `remember`：压缩并存储原始内容。
+- `recall`：检索长期记忆，不足时回查完整历史。
+- `catch`：获取最近关键记忆。
+- `forget`：删除指定记忆。
+- `summarize_workflow`：工作流结束后蒸馏入长期记忆。
+
+### 如何让更多人喜欢
+
+- 开箱即用：一条命令启动 + 清晰配置。
+- 成本可解释：公开基准与账单对比方法。
+- 集成友好：给主流框架完整示例。
+- 稳定可信：CI、重试、日志、缓存策略透明。
+
+### 为构建做好准备（Build-ready）
+
+- [ ] 提供 benchmark 脚本与可复现数据。
+- [ ] 补充 LangChain / AutoGen / Agents SDK 接入示例。
+- [ ] 增加 `.env.example` 与配置校验。
+- [ ] 建立 CI（lint/test/smoke）。
+- [ ] 完善生产部署文档（日志、限流、重试、缓存）。
+
+---
+
+## Project structure
+
+```text
 context-proxy-mcp/
-├── context_proxy_mcp/
-│   ├── __init__.py          # Package init
-│   ├── server.py            # MCP server, registers all tools
-│   ├── memory_store.py      # Local search engine (Chroma vector database)
-│   ├── query_log.py         # Query log – for duplicate detection & cache control
-│   ├── deepseek_client.py   # DeepSeek API wrapper – compression, storage, retrieval
-│   └── config.py            # Configuration
+├── server.py              # MCP server
+├── memory_store.py        # Local vector memory (Chroma)
+├── query_log.py           # Query dedup + cache control
+├── deepseek_client.py     # DeepSeek wrapper
+├── config.py              # Configuration
 ├── pyproject.toml
 └── README.md
 ```
 
----
-
-## Configuration
-
-All configuration can be done via environment variables:
-
-| Variable | Default | Description |
-|---|---|---|
-| `OPENROUTER_API_KEY` | — | OpenRouter API key (primary) |
-| `DEEPSEEK_API_KEY` | — | Direct DeepSeek API key (fallback) |
-| `CONTEXT_PROXY_MEMORY_DIR` | `.context_proxy_memory` | ChromaDB storage directory |
-| `CONTEXT_PROXY_COLLECTION` | `long_term_memory` | ChromaDB collection name |
-| `CONTEXT_PROXY_EMBEDDING_MODEL` | `all-MiniLM-L6-v2` | Embedding model for semantic search |
-| `CONTEXT_PROXY_TOP_K` | `5` | Default number of search results |
-| `CONTEXT_PROXY_CACHE_TTL` | `300` | Cache TTL in seconds |
-| `CONTEXT_PROXY_AGENT_ID` | — | Agent identifier for multi-agent mode |
-| `CONTEXT_PROXY_AGENT_NAME` | — | Agent display name |
-
----
-
 ## Contributing
 
-This is an opinionated project born from real multi-agent cost problems.
-Feedback, issues, and PRs are very welcome — especially around:
-
-- Integration with other agent frameworks (LangChain, AutoGen, etc.)
-- Improved local search / embedding strategies
-- More fine-grained cache control strategies
-- Real-world benchmarking
-
----
+PRs are welcome—especially benchmarks, integrations, retrieval quality, and cache strategy improvements.
 
 ## License
 
@@ -213,4 +187,4 @@ MIT
 
 ---
 
-> *"Don't let your best model remember. Let it think."*
+> Don’t let your best model remember. Let it think.
