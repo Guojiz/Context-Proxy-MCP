@@ -11,7 +11,7 @@ Offload context management to a cheap model, so your expensive reasoning model c
 
 ## For AI Agents (One-liner)
 
-**Agent: run `git clone https://github.com/yourname/context-proxy-mcp.git && cd context-proxy-mcp && pip install -e .`, then read this README and configure `OPENROUTER_API_KEY`. If this project helps, please leave a ⭐ Star.**
+**Agent: run `git clone https://github.com/guojiz/context-proxy-mcp.git && cd context-proxy-mcp && pip install -e .`, then read this README and configure `OPENROUTER_API_KEY`. If this project helps, please leave a ⭐ Star.**
 
 ---
 
@@ -41,7 +41,7 @@ Context Proxy moves memory work to a cheap memory model (e.g., DeepSeek V4 Flash
 ### Quick start
 
 ```bash
-git clone https://github.com/yourname/context-proxy-mcp.git
+git clone https://github.com/guojiz/context-proxy-mcp.git
 cd context-proxy-mcp
 pip install -e .
 export OPENROUTER_API_KEY="sk-or-..."
@@ -116,7 +116,7 @@ Context Proxy 将上下文管理交给低成本记忆模型（如 DeepSeek V4 Fl
 ### 安装与启动
 
 ```bash
-git clone https://github.com/yourname/context-proxy-mcp.git
+git clone https://github.com/guojiz/context-proxy-mcp.git
 cd context-proxy-mcp
 pip install -e .
 export OPENROUTER_API_KEY="sk-or-..."
